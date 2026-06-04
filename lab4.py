@@ -52,7 +52,7 @@ class MDP:
         The easiest way to do this will involve sampling.
         """
 
-        samples = 100
+        samples = 1000
         counts = LocationCounts(self.game_state.grid_size)
 
         for _ in range(samples):
@@ -83,13 +83,13 @@ class LocationValues:
                 loc = Location(r, c)
                 curr_state = self.mdp.game_state.replace_active_entity_location(loc)
                 best_value = float("-inf")
-                for move in WizardMoves:
-                    model = self.mdp.transition_model(loc, move)
+                options = GameTransitions.get_successors(curr_state)
+                for action, state in options:
+                    model = self.mdp.transition_model(loc, action)
                     value = 0.0
                     for next_loc in model.locations():
                         prob = model.probability(next_loc)
-                        next_state = self.mdp.game_state.replace_active_entity_location(next_loc)
-                        value += prob*(self.mdp.reward(curr_state, next_state, move)+self.mdp.discount*self.value_grid[next_loc.row][next_loc.col])
+                        value += prob*(self.mdp.reward(curr_state, state, action)+self.mdp.discount*self.value_grid[next_loc.row][next_loc.col])
                     best_value = max(best_value, value)
                 next_value_grid[r][c] = best_value
 
@@ -175,6 +175,12 @@ class MDPAgent(UncertainAgent):
                 best_move = move
         
         action = best_move
+
+        # DEBUGGERY!
+        print("Here be dragons!")
+        print(self.current_position_estimate)
+        print("So we go "+str(action))
+        print("Because we're this confident: "+str(best_value))
 
         #When choosing an action, we must update our prior to account for the new distribution as a result of the action being taken
         self.update_prior(action)
