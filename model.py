@@ -215,6 +215,7 @@ class GameState:
 
 
 class GameTransitions:
+    @staticmethod
     def get_successors(source: GameState) -> tuple[tuple[GameAction, GameState], ...]:
         if source.victory or source.defeat:
             return ()
@@ -314,7 +315,7 @@ class GameTransitions:
                     )
         return tuple(transitions)
 
-
+    @staticmethod
     def transition(game_state:GameState, action: GameAction) -> GameState:
         successors = GameTransitions.get_successors(game_state)
         actions = [a for a, _ in successors]
@@ -366,11 +367,13 @@ class LocationDistribution:
     def __init__(self,prob_grid: list[list[float]]):
         self.prob_grid = prob_grid
 
+    @staticmethod
     def from_location(loc:Location, grid_size:tuple[int,int])->LocationDistribution:
         prob_grid = [[0.0 for _ in range(grid_size[1])] for _ in range(grid_size[0])]
         prob_grid[loc.row][loc.col] = 1.0
         return LocationDistribution(prob_grid)
 
+    @staticmethod
     def from_game_state(game_state:GameState)->LocationDistribution:
         grid_size = game_state.grid_size
         loc = game_state.active_entity_location
@@ -378,6 +381,7 @@ class LocationDistribution:
         prob_grid[loc.row][loc.col] = 1.0
         return LocationDistribution(prob_grid)
 
+    @staticmethod
     def from_game_state_uniform(game_state:GameState)->LocationDistribution:
         """
         Initialize a uniformly random distribution over all empty tiles

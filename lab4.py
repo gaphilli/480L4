@@ -52,14 +52,19 @@ class MDP:
         The easiest way to do this will involve sampling.
         """
 
-        #TODO YOUR CODE HERE
-        raise NotImplementedError()
+        samples = 100
+        counts = LocationCounts(self.game_state.grid_size)
+
+        for _ in range(samples):
+            counts.add_count(self.transition_model(source.sample(), action).sample())
+
+        return counts.normalize()
 
 
 class LocationValues:
     def __init__(self, mdp: MDP):
         self.mdp = mdp
-        self.value_grid = [[0.0 for _ in range(mdp.game_state.grid_size[1])] for _ in range(mdp.game_state.grid_size[1])]
+        self.value_grid = [[0.0 for _ in range(mdp.game_state.grid_size[1])] for _ in range(mdp.game_state.grid_size[0])]
 
     def value_iteration(self,k):
         for _ in range(k):
@@ -70,12 +75,25 @@ class LocationValues:
         Perform one update of value iteration based off of the provided MDP.
         """
 
-        next_value_grid = [[0.0 for _ in range(self.mdp.game_state.grid_size[1])] for _ in range(self.mdp.game_state.grid_size[1])]
+        next_value_grid = [[0.0 for _ in range(self.mdp.game_state.grid_size[1])] for _ in range(self.mdp.game_state.grid_size[0])]
 
+        rows, cols = self.mdp.game_state.grid_size
+        for r in range(rows):
+            for c in range(cols):
+                loc = Location(r, c)
+                curr_state = self.mdp.game_state.replace_active_entity_location(loc)
+                best_value = float("-inf")
+                for move in WizardMoves:
+                    model = self.mdp.transition_model(loc, move)
+                    value = 0.0
+                    for next_loc in model.locations():
+                        prob = model.probability(next_loc)
+                        next_state = self.mdp.game_state.replace_active_entity_location(next_loc)
+                        value += prob*(self.mdp.reward(curr_state, next_state, move)+self.mdp.discount*self.value_grid[next_loc.row][next_loc.col])
+                    best_value = max(best_value, value)
+                next_value_grid[r][c] = best_value
 
-        #TODO YOUR CODE HERE, CALCULATE NEXT VALUE AS A FUNCTION OF PREVIOUS VALUE
-        raise NotImplementedError()
-
+        self.value_grid = next_value_grid
         return next_value_grid
 
 
@@ -117,9 +135,9 @@ class MDPAgent(UncertainAgent):
 
         #The new distribution should be set for each location
         for loc in new_estimate.locations():
-
-            #TODO: YOUR CODE HERE
-            raise NotImplementedError()
+            prior = self.current_position_estimate.probability(loc)
+            likelihood = self.observation_likelihood(observation, loc)
+            new_estimate.update_probability(loc, prior * likelihood)
 
         new_estimate.renormalize()
         self.current_position_estimate = new_estimate
@@ -142,9 +160,21 @@ class MDPAgent(UncertainAgent):
             # 4. You can find the distribution of the results of an action for a given specific location
             # 5. You can calculate the reward of a specific transition as a result of a specific action with a specific result
             # 6. You have an estimate of the value of each result location
-        #TODO YOUR CODE HERE
-        raise NotImplementedError()
-        action = WizardMoves.RIGHT
+        
+        best_move = WizardMoves.STAY
+        best_value = float("-inf")
+
+        for move in WizardMoves:
+            value = 0
+            next_position = self.mdp.transition_distribution(self.current_position_estimate, move)
+            for loc in next_position.locations():
+                prob = next_position.probability(loc)
+                value += prob * self.values.value_grid[loc.row][loc.col]
+            if (value > best_value):
+                best_value = value
+                best_move = move
+        
+        action = best_move
 
         #When choosing an action, we must update our prior to account for the new distribution as a result of the action being taken
         self.update_prior(action)
