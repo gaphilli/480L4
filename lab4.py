@@ -52,7 +52,8 @@ class MDP:
         The easiest way to do this will involve sampling.
         """
 
-        samples = 1000
+        # Sample 10x total grid squares. Should ensure decent understanding, capped at 1000 for time-out.
+        samples = min(10*self.game_state.grid_size[0]*self.game_state.grid_size[1], 1000)
         counts = LocationCounts(self.game_state.grid_size)
 
         for _ in range(samples):
@@ -84,13 +85,14 @@ class LocationValues:
                 curr_state = self.mdp.game_state.replace_active_entity_location(loc)
                 best_value = float("-inf")
                 options = GameTransitions.get_successors(curr_state)
+                action_values = {}
                 for action, state in options:
                     model = self.mdp.transition_model(loc, action)
-                    value = 0.0
-                    for next_loc in model.locations():
-                        prob = model.probability(next_loc)
-                        value += prob*(self.mdp.reward(curr_state, state, action)+self.mdp.discount*self.value_grid[next_loc.row][next_loc.col])
-                    best_value = max(best_value, value)
+                    next_loc = state.active_entity_location
+                    prob = model.probability(next_loc)
+                    action_values[action] = prob*(self.mdp.reward(curr_state, state, action)
+                                                + self.mdp.discount*self.value_grid[next_loc.row][next_loc.col])
+                best_value = (max(action_values.values()) + sum(action_values.values())/len(action_values))/2
                 next_value_grid[r][c] = best_value
 
         self.value_grid = next_value_grid
@@ -164,6 +166,11 @@ class MDPAgent(UncertainAgent):
         best_move = WizardMoves.STAY
         best_value = float("-inf")
 
+
+        # # DEBUGGERY
+        # print("We're probably here:")
+        # print(self.current_position_estimate)
+
         for move in WizardMoves:
             value = 0
             next_position = self.mdp.transition_distribution(self.current_position_estimate, move)
@@ -173,14 +180,21 @@ class MDPAgent(UncertainAgent):
             if (value > best_value):
                 best_value = value
                 best_move = move
+            # # DEBUGGERY
+            # print("Checking Move: "+str(move)+": "+str(value))
         
         action = best_move
 
-        # DEBUGGERY!
-        print("Here be dragons!")
-        print(self.current_position_estimate)
-        print("So we go "+str(action))
-        print("Because we're this confident: "+str(best_value))
+        # # DEBUGGERY!
+        # print(f"So we go %s at a %.2d confidence!" %(str(best_move),best_value))
+        # print("Because of these values:")
+        # for row in self.values.value_grid:
+        #     print(" | ".join(f"{value:10.1f}" for value in row))
+        # print("Next Locations:")
+        # for loc in next_position.locations():
+        #     p = next_position.probability(loc)
+        #     if p > 0.05:
+        #         print(loc,p,self.values.value_grid[loc.row][loc.col])
 
         #When choosing an action, we must update our prior to account for the new distribution as a result of the action being taken
         self.update_prior(action)
